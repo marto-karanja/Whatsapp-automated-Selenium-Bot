@@ -16,6 +16,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By 
 from selenium.webdriver.support.ui import WebDriverWait 
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import ElementNotVisibleException
@@ -31,6 +32,9 @@ class Whatsappbot(object):
         CHROME_DRIVER = settings['chromedriver']
         self.BID_STATUS = settings['bid_status']
         self.DELAY = settings['delay']"""
+
+        self.post = False
+        self.last_group = "Futa live"
 
         # Launch firefox instance
         
@@ -100,81 +104,103 @@ class Whatsappbot(object):
         return os.path.join(base_path, relative_path)
     #-----------------------------------------------------------------------------
     
-    def send_message(self, group_name, message, window = None):
+    def send_message(self, group_name, window = None):
         self.find_group(group_name, window)
-        # send message
-        #message_field = self.driver.find_element_by_xpath("//div[contains(@class,'_1UWac _1LbR4')]//div[contains(@class, '_13NKt copyable-text selectable-text')]")
-        #message_field.send_keys(message)
-        # click send
-        return True
+
+    
     
     #------------------------------------------------------------------------------ 
     def send_messages(self, pipeline, event, window, group_names, message):
         """Sends messages to multiple groups"""
         counter = 0
         while not event.isSet():
-            self.send_message(group_names[counter], message, window)
+            self.send_message(group_names[counter], window)
+            if self.post:
+                self.post_message(group_names[counter], message,window)
             if counter == len(group_names) -1:
                 event.set()
                 wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
+                msg = "-"*30
+                wx.CallAfter(window.log_message_to_txt_field, msg)
             counter = counter + 1
 
 
     #-----------------------------------------------------------------------------
     def find_group(self, group_name, window):
-        msg = "Searching for group: {}".format(group_name)
+        msg = "Searching for group: [{0}]".format(group_name)
         wx.CallAfter(window.log_message_to_txt_field, msg)
-        self.driver.refresh()
         try:
-            WebDriverWait(self.driver, 240).until(EC.visibility_of_any_elements_located((By.ID, "pane-side")))
-        except (ElementNotVisibleException, NoSuchElementException, TimeoutException) as e:
-            self.driver.save_screenshot("error_file.png")
+            xpath_element =  "//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = '" + group_name + "']"
+            group = self.driver.find_element_by_xpath(xpath_element)
+        except NoSuchElementException:
+            msg = "[{0}] searching....".format(group_name)
+            wx.CallAfter(window.log_message_to_txt_field, msg)
+            self.driver.execute_script("var myElement = document.getElementById('pane-side');var topPos = myElement.offsetTop;document.getElementById('pane-side').scrollTop = topPos;")
+        except StaleElementReferenceException:
+            self.driver.refresh()
+            self.find_group(group_name, window)
+        else:
+            group.click()
+            self.post = True
+            msg = "{0} found and clicked".format(group_name)
+            wx.CallAfter(window.log_message_to_txt_field, msg)
+            return
+    
         
         xpath_element = "//*[@id='pane-side']"
         chat_body = self.driver.find_element_by_xpath(xpath_element)
-        # ensure that you are at the top of the scrollable div
-        self.driver.execute_script("arguments[0].scrollIntoView();", chat_body)
-        scroll = True
-        counter = 0
-        while scroll:  # this will scroll 3 times
-            try:
-                xpath_string = "//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = '{}']".format(group_name)
-                WebDriverWait(self.driver, 2).until(EC.element_to_be_clickable((By.XPATH, xpath_string)))
-                group_link = self.driver.find_element_by_xpath(xpath_string)
-                group_link.click()
-            except (NoSuchElementException, TimeoutException) as e:
-                self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;',chat_body)
-            else:
-                #group_link = driver.find_element_by_xpath("//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = 'AWWB Kikuyu']")
-                #group_link.click()
-                print("Element found and clicked", group_name)
-                msg = "Group found and clicked: {}".format(group_name)
-                wx.CallAfter(window.log_message_to_txt_field, msg)
-                scroll = False
-                break
-            # add appropriate wait here, of course. 1-2 seconds each
-            # get current point in log field
-            message = "[{}] : Searching for group....".format(group_name)
-            if counter == 0:
-                wx.CallAfter(window.log_message_to_txt_field, message)
-            else:
-                insertion_point = (window.logTxtField.GetInsertionPoint() - 1)
-                from_point = insertion_point - len(message)
-                wx.CallAfter(window.log_message_to_txt_field, message)
-            print ("Searching for group", group_name)
+        for i in range(1,10000):
             
-            # check if at the bottom
             try:
-                x = self.driver.find_element_by_xpath("//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = 'Futa live']")
-                
+                xpath_element =  "//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = '" + group_name + "']"
+                group = self.driver.find_element_by_xpath(xpath_element)
             except NoSuchElementException:
-                # pause
-                #sleep(0.1)
+                msg = "[{0}] searching....".format(group_name)
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+                sleep(1)
+            except StaleElementReferenceException:
+                self.driver.refresh()
+                self.find_group(group_name, window)
+            else:
+                group.click()
+                self.post = True
+                msg = "{0} found and clicked".format(group_name)
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+                break
+            try:
+                xpath_element = "//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = '" + self.last_group + "']"
+                x = self.driver.find_element_by_xpath(xpath_element)
+                                
+            except NoSuchElementException:
                 pass
             else:
                 x.click()
                 print("Group not found, exiting search loop")
-                message = "[{}] : Unable to find group".format(group_name)
-                wx.CallAfter(window.log_message_to_txt_field, message)
-                # break out of the loop when element is present
-                scroll = False
+                msg = "[{0}] not found".format(group_name)
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+                break
+            self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + document.body.scrollHeight;',chat_body)
+
+    #------------------------------------------------------------------
+    def post_message(self, group_name, message, window):
+        print("Sending message {0}".format(message))
+        message_field = self.driver.find_element_by_xpath("//div[contains(@class,'_1UWac _1LbR4')]//div[contains(@class, '_13NKt copyable-text selectable-text')]")
+        for line in message:
+            message_field.send_keys(line)
+            message_field.send_keys(Keys.SHIFT + Keys.ENTER)
+        message_field.send_keys(Keys.ENTER)
+        # send message
+        #send_button = self.driver.find_element_by_class_name("_4sWnG")
+        #send_button.click()
+        msg = "Posted to group [{0}]".format(group_name)
+        wx.CallAfter(window.log_message_to_txt_field, msg)
+
+    
+
+
+    #------------------------------------------------------------------------
+
+    def stop_bot(self):
+        """Exit and clean up function"""
+        self.driver.quit()
+

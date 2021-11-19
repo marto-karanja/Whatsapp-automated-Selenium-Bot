@@ -37,6 +37,7 @@ class WhatsappPanel(wx.Panel):
             btnSizer = wx.BoxSizer(wx.HORIZONTAL)
 
             btnData = [("Add Group", btnSizer, self.addGroup),
+            ("Save Group", btnSizer, self.onSaveGroup),
             ("Delete Group", btnSizer, self.deleteGroup)]
 
             for data in btnData:
@@ -67,6 +68,9 @@ class WhatsappPanel(wx.Panel):
             self.launch_bot_button = self.btnBuilder("Launch Whatsapp", messageButtonSizer, self.onLaunchBot)
             self.send_message_button = self.btnBuilder("Send Message to Groups", messageButtonSizer, self.onSend)
             self.send_message_button.Disable()
+            self.close_button = self.btnBuilder("Close Bot", messageButtonSizer, self.onClose)
+            self.close_button.Disable()
+
 
 
             messageBoxSizer.Add(messageButtonSizer, 0, wx.EXPAND|wx.ALL)
@@ -102,13 +106,16 @@ class WhatsappPanel(wx.Panel):
 
         #-----------------------------------------------------------------------
         def addGroup(self, evt):
-            group_name = "AWWB Kikuyu"
             # Create Dialog Box
             message = "Enter name of group to message"
             dialog = wx.GetTextFromUser(message, caption="Input text", default_value="", parent=None)
             if dialog != "":
                 # Add item to list box
                 self.groupListBox.Append(dialog)
+
+        #-----------------------------------------------------------------------
+        def onSaveGroup(self, evt):
+            pass
             
 
         #-----------------------------------------------------------------------
@@ -126,19 +133,22 @@ class WhatsappPanel(wx.Panel):
                 # Create whatsappBot 
                 self.bot = Whatsappbot()
                 self.send_message_button.Enable()
+                self.close_button.Enable()
+                self.launch_bot_button.Disable()
                 
 
 
         #------------------------------------------------------------------------
         def onSend(self,evt):
+            self.send_message_button.Disable()
             # get message from text field
             msg_lines = self.messageTxtField.GetNumberOfLines()
             message = []
             for line in range(msg_lines):
                 msg = self.messageTxtField.GetLineText(line)
                 message.append(msg)
-            message = '\n'.join(message) 
             print(message)
+
             # get groups selected
             group_names = self.get_group_names()
             if group_names and message:
@@ -161,10 +171,22 @@ class WhatsappPanel(wx.Panel):
                 print("One of the field was empty")
                 retCode = wx.MessageBox("Either the message is empty or no group name is selected", caption="Empty fileds", style=wx.YES_NO | wx.ICON_ERROR)
             
+            # enable send message button again
+            self.send_message_button.Enable()
+            
         #-----------------------------------------------------------------------
         def log_message_to_txt_field(self, msg):
             self.logTxtField.AppendText(msg)
             self.logTxtField.AppendText("\n")
+
+
+        
+        #------------------------------------------------------------------
+        def onClose(self, evt):
+            self.bot.stop_bot()
+            self.send_message_button.Disable()
+            self.launch_bot_button.Enable()
+            self.close_button.Disable()
 
         
 
@@ -182,9 +204,9 @@ class WhatsappBotFrame(wx.Frame):
         self.SetIcon(wx.Icon("assets/whatsappbot.ico"))
 
     def createPanel(self):
-        whatsappPanel = WhatsappPanel(self)
+        self.whatsappPanel = WhatsappPanel(self)
         box = wx.BoxSizer(wx.HORIZONTAL)
-        box.Add(whatsappPanel, 1, wx.EXPAND)
+        box.Add(self.whatsappPanel, 1, wx.EXPAND)
         self.SetSizer(box)
 
 
@@ -221,6 +243,7 @@ class WhatsappBotFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, handler, menuItem)
 
     def OnCloseWindow(self, event):
+        self.whatsappPanel.onClose(evt=event)
         self.Destroy()
 
     def OnAbout(self, event):

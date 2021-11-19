@@ -5,7 +5,7 @@ block_cipher = None
 
 a = Analysis(['main_gui.py'],
              pathex=['C:\\Users\\Admin\\Documents\\projects\\bots\\whatsapp\\bot'],
-             binaries=[('bot\\driver\\chromedriver.exe', 'driver\\')],
+             binaries=[('bot\\driver\\geckodriver.exe', 'driver\\')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
