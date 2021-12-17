@@ -125,6 +125,41 @@ class Whatsappbot(object):
             counter = counter + 1
 
 
+
+
+#------------------------------------------------------------------------------ 
+    def schedule_messages(self, pipeline, event, window, group_names, message, interval, workload):
+        """Sends messages to multiple groups"""
+        step = interval
+        counter = 0
+        while not event.isSet():
+            while interval < workload:
+                while counter != len(group_names):
+                    self.send_message(group_names[counter], window)
+                    if self.post:
+                        self.post_message(group_names[counter], message,window)
+                    if counter == len(group_names) -1:
+                        #event.set()
+                        wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
+                        msg = "-"*30
+                        wx.CallAfter(window.log_message_to_txt_field, msg)
+                        break
+                    counter = counter + 1
+                msg = "Pausing execution for {0} secs".format(step)
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+                sleep(step)
+                interval = interval + step
+            wx.CallAfter(window.log_message_to_txt_field, "Finished Scheduling messages")
+            msg = "-"*50
+            wx.CallAfter(window.log_message_to_txt_field, msg)
+
+
+
+
+
+
+
+
     #-----------------------------------------------------------------------------
     def find_group(self, group_name, window):
         msg = "Searching for group: [{0}]".format(group_name)
