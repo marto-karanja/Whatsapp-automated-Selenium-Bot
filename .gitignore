@@ -13,5 +13,4 @@ config.json
 /bot/build
 /
 *.zip
-/dist
 /build
