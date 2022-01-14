@@ -92,9 +92,11 @@ class WhatsappPanel(wx.Panel):
             messageButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
             save_message_button = self.btnBuilder("Save Message", messageButtonSizer, self.onSaveMessage)
             self.launch_bot_button = self.btnBuilder("Launch Whatsapp", messageButtonSizer, self.onLaunchBot)
-            self.send_message_button = self.btnBuilder("Send Message to Groups", messageButtonSizer, self.onSend)
+            self.send_message_button = self.btnBuilder("Send Saved Messages to Groups", messageButtonSizer, self.onSend)
+            self.send_current_message_button = self.btnBuilder("Send Current Messages to All Groups", messageButtonSizer, self.onSendCurrent)
             self.schedule_message_button = self.btnBuilder("Schedule Messages", messageButtonSizer, self.onScheduleMessages)
             self.send_message_button.Disable()
+            self.send_current_message_button.Disable()
             self.schedule_message_button.Disable()
             self.close_button = self.btnBuilder("Close Bot", messageButtonSizer, self.onClose)
             self.close_button.Disable()
@@ -223,6 +225,7 @@ class WhatsappPanel(wx.Panel):
                 # Create whatsappBot 
                 self.bot = Whatsappbot()
                 self.send_message_button.Enable()
+                self.send_current_message_button.Enable()
                 self.close_button.Enable()
                 self.schedule_message_button.Enable()
                 self.launch_bot_button.Disable()
@@ -233,13 +236,16 @@ class WhatsappPanel(wx.Panel):
         def onSend(self,evt):
             self.send_message_button.Disable()
             # get message from text field
-            message = self.get_messages()
-            print(message)
-
+            #message = self.get_messages()
             # get groups selected
             group_names = self.get_group_names()
-            if group_names and message:
-                # launch confirmation dialogue
+
+            # fetch group and corresponding message
+            groups = fetchGroupMessages(group_names)
+            
+
+
+            if group_names:                # launch confirmation dialogue
                 retCode = wx.MessageBox("Are you sure you want to post messages to the selected group?", caption="Confirm Sending", style=wx.YES_NO | wx.ICON_INFORMATION)
 
                 if (retCode == wx.YES):
@@ -250,7 +256,7 @@ class WhatsappPanel(wx.Panel):
                     # Launch search in separate thread
                     self.order_queue = Queue(maxsize = 100)
                     self.quit_event = threading.Event()
-                    message_thread = threading.Thread(target=self.bot.send_messages, args=(self.order_queue, self.quit_event, self, group_names, message), daemon=True)
+                    message_thread = threading.Thread(target=self.bot.send_messages, args=(self.order_queue, self.quit_event, self, groups), daemon=True)
                     # add thread to thread of active threads
                     message_thread.start()
                             
@@ -260,6 +266,41 @@ class WhatsappPanel(wx.Panel):
             
             # enable send message button again
             self.send_message_button.Enable()
+
+        #--------------------------------------------------------------------
+        
+        #------------------------------------------------------------------------
+        def onSendCurrent(self,evt):
+            self.send_current_message_button.Disable()
+            # get message from text field
+            message = self.get_messages()
+            # get groups selected
+            group_names = self.get_group_names()
+
+            
+
+
+            if group_names and message:                # launch confirmation dialogue
+                retCode = wx.MessageBox("Are you sure you want to post messages to the selected group?", caption="Confirm Sending", style=wx.YES_NO | wx.ICON_INFORMATION)
+
+                if (retCode == wx.YES):
+                    # for group in group names send_message
+                    """
+                    for name in group_names:
+                        self.bot.send_message(name, message, window = self)"""
+                    # Launch search in separate thread
+                    self.order_queue = Queue(maxsize = 100)
+                    self.quit_event = threading.Event()
+                    message_thread = threading.Thread(target=self.bot.send_current_messages, args=(self.order_queue, self.quit_event, self, group_names, message), daemon=True)
+                    # add thread to thread of active threads
+                    message_thread.start()
+                            
+            else:
+                print("One of the field was empty")
+                retCode = wx.MessageBox("Either the message is empty or no group name is selected", caption="Empty fileds", style=wx.YES_NO | wx.ICON_ERROR)
+            
+            # enable send message button again
+            self.send_current_message_button.Enable()
 
 
         #-----------------------------------------------------------------------
@@ -274,7 +315,7 @@ class WhatsappPanel(wx.Panel):
             dlg.ShowModal()
             interval = self.time_in_secs[dlg.interval.GetValue()]
             workload = self.time_in_secs[dlg.workload.GetValue()]
-            print(interval, workload)
+
             if interval > workload:
                 wx.MessageBox("The workload has to be greater than the interval", caption="Incorrect Parameters", style=wx.YES| wx.ICON_ERROR)
             else:
@@ -291,12 +332,14 @@ class WhatsappPanel(wx.Panel):
         #--------------------------------------------------------------------
         def schedule_messages(self, interval, workload):
             # fetch group names and message
-            # get message from text field
-            message = self.get_messages()
+
             # get groups selected
             group_names = self.get_group_names()
 
-            if group_names and message:
+            # fetch group and corresponding message
+            groups = fetchGroupMessages(group_names)
+
+            if group_names:
                 # launch confirmation dialogue
                 retCode = wx.MessageBox("Are you sure you want to schedule messages to the selected group?", caption="Confirm Sending", style=wx.YES_NO | wx.ICON_INFORMATION)
 
@@ -308,8 +351,9 @@ class WhatsappPanel(wx.Panel):
                     # Launch search in separate thread
                     self.order_queue = Queue(maxsize = 100)
                     self.quit_event = threading.Event()
+
                     
-                    message_thread = threading.Thread(target=self.bot.schedule_messages, args=(self.order_queue, self.quit_event, self, group_names, message, interval, workload), daemon=True)
+                    message_thread = threading.Thread(target=self.bot.schedule_messages, args=(self.order_queue, self.quit_event, self, groups, interval, workload), daemon=True)
                     # add thread to thread of active threads
                     message_thread.start()
                             
@@ -353,6 +397,7 @@ class WhatsappPanel(wx.Panel):
             except AttributeError:
                 pass
             self.send_message_button.Disable()
+            self.current_message_button.Disable()
             self.launch_bot_button.Enable()
             self.close_button.Disable()
             self.schedule_message_button.Disable()
@@ -366,7 +411,7 @@ class WhatsappBotFrame(wx.Frame):
     """Whatsapp GUI Frame"""
     def __init__(self, parent):
         self.title = "Whatsapp Bot"
-        wx.Frame.__init__(self, parent, -1, self.title, size=(900,700))
+        wx.Frame.__init__(self, parent, -1, self.title, size=(1200,700))
         self.createMenuBar()
 
         self.createPanel()
@@ -555,6 +600,8 @@ class ScheduleDialog(wx.Dialog):
 
 #----------------------------------------------------------------------
 
+
+from datetime import date, datetime, timedelta
 class WhatsappBotApp(wx.App):
 
     def OnInit(self):
@@ -563,11 +610,30 @@ class WhatsappBotApp(wx.App):
                 1000, None, -1)
         wx.Yield()
 
+        
+
+
         frame = WhatsappBotFrame(None)
         self.locale = wx.GetLocale()
         frame.Show(True)
         self.SetTopWindow(frame)
+        expiry_date = self.check_expiry()
+        
+        if (expiry_date > datetime.now()):
+            #difference = expiry_date - datetime.now()
+            #self.logger.info("Executing trial version. You have %s days remaining.", difference.days)
+            return True
+        else:
+            wx.MessageBox('Your trial period has expired.', 'SharkBot Message Error Box', wx.OK | wx.ICON_ERROR)
+            return False
         return True
+
+    def check_expiry(self):
+        """checks if trial license is valid, returns expiry date"""
+        sell_date = '2022-01-14'
+        sell_date = datetime.strptime(sell_date, '%Y-%m-%d')
+        expiry_date = sell_date + timedelta(30)
+        return expiry_date
 
 if __name__ == '__main__':
     

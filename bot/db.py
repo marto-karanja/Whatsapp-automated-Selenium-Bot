@@ -5,6 +5,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 #https://www.pythoncentral.io/introductory-tutorial-python-sqlalchemy/
 #https://overiq.com/sqlalchemy-101/crud-using-sqlalchemy-orm/
@@ -29,8 +30,7 @@ engine = create_engine('sqlite:///bot.db', echo = False)
 # statements in raw SQL.
 Base.metadata.create_all(engine)
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+
  
  
 
@@ -92,8 +92,8 @@ def updateGroupNames(group_names, messages):
             session.flush() # for resetting non-commited .add()
             wx.MessageBox("There was an unexpected error", "Error Saving", wx.OK | wx.ICON_ERROR)
             
-        else:
-            wx.MessageBox("Successfully saved", "Success", wx.OK | wx.ICON_INFORMATION)
+    wx.MessageBox("Successfully saved", "Success", wx.OK | wx.ICON_INFORMATION)
+            
         
     return
             
@@ -105,6 +105,21 @@ def readGroupNames():
     for result in results:
         saved_names [result.group_name] = result.message
     return saved_names
+
+
+#----------------------------------------------------
+def fetchGroupMessages(groupnames):
+    query = session.query(GroupNames).filter(GroupNames.group_name.in_(groupnames))
+    #print(str(query))
+    results = query.all()
+    return results
+
+
+######
+#--------------------------------------------------------------------------
+def fetch_messages(group_name):
+    result = session.query(GroupNames).filter(GroupNames.group_name == group_name).first()
+    return result.message
 
 
 def fetchGroupName(name):

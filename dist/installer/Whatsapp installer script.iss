@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Whatsapp Bot"
-#define MyAppVersion "1.5"
+#define MyAppVersion "1.6"
 #define MyAppPublisher "My Company, Inc."
 #define MyAppURL "https://www.example.com/"
 #define MyAppExeName "Whatsapp bot.exe"
@@ -23,7 +23,7 @@ DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
 OutputDir=C:\Users\Admin\Documents\projects\bots\whatsapp\dist\installer
-OutputBaseFilename=whatsapp Bot Installer
+OutputBaseFilename=Main whatsapp Bot Installer
 SetupIconFile=C:\Users\Admin\Documents\projects\bots\whatsapp\dist\assets\whatsappbot.ico
 Compression=lzma
 SolidCompression=yes

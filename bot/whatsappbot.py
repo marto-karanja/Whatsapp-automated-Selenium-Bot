@@ -7,7 +7,8 @@ import random
 import winsound
 import sys
 import wx
-
+import datetime
+from datetime import datetime
 from time import sleep
 
 # import webdriver 
@@ -20,6 +21,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import ElementNotVisibleException
+
+
+from bot.db import *
 
 
 class Whatsappbot(object):
@@ -105,19 +109,50 @@ class Whatsappbot(object):
     #-----------------------------------------------------------------------------
     
     def send_message(self, group_name, window = None):
-        self.find_group(group_name, window)
+        self.search_group(group_name, window)
+
 
     
     
     #------------------------------------------------------------------------------ 
-    def send_messages(self, pipeline, event, window, group_names, message):
+    def send_messages(self, pipeline, event, window, groups):
         """Sends messages to multiple groups"""
-        counter = 0
+
         while not event.isSet():
+            for group in groups:
+                self.send_message(group.group_name, window)
+                if self.post:
+                    self.post_message(group.group_name, group.message, window)
+            event.set()
+            wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
+            msg = "-"*30
+            wx.CallAfter(window.log_message_to_txt_field, msg)
+
+            """
+
+
             self.send_message(group_names[counter], window)
             if self.post:
-                self.post_message(group_names[counter], message,window)
+                self.post_message(group_names[counter], message[counter],window)
             if counter == len(group_names) -1:
+                event.set()
+                wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
+                msg = "-"*30
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+            counter = counter + 1"""
+
+
+#------------------------------------------------------------------------------ 
+    def send_current_messages(self, pipeline, event, window, groups, message):
+        """Sends messages to multiple groups"""
+
+        counter = 0
+
+        while not event.isSet():
+            self.send_message(groups[counter], window)
+            if self.post:
+                self.post_current_message(groups[counter], message,window)
+            if counter == len(groups) -1:
                 event.set()
                 wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
                 msg = "-"*30
@@ -126,32 +161,36 @@ class Whatsappbot(object):
 
 
 
+            
+
 
 #------------------------------------------------------------------------------ 
-    def schedule_messages(self, pipeline, event, window, group_names, message, interval, workload):
+    def schedule_messages(self, pipeline, event, window, groups, interval, workload):
         """Sends messages to multiple groups"""
         step = interval
         counter = 0
         while not event.isSet():
-            while interval < workload:
-                while counter != len(group_names):
-                    self.send_message(group_names[counter], window)
+            while interval <= workload:
+                for group in groups:
+                    self.send_message(group.group_name, window)
                     if self.post:
-                        self.post_message(group_names[counter], message,window)
-                    if counter == len(group_names) -1:
-                        #event.set()
-                        wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
-                        msg = "-"*30
-                        wx.CallAfter(window.log_message_to_txt_field, msg)
-                        break
-                    counter = counter + 1
-                msg = "Pausing execution for {0} secs".format(step)
+                        self.post_message(group.group_name, group.message, window)
+                
+                wx.CallAfter(window.log_message_to_txt_field, "Finished Posting Process")
+                msg = "-"*30
                 wx.CallAfter(window.log_message_to_txt_field, msg)
-                sleep(step)
+
                 interval = interval + step
-            wx.CallAfter(window.log_message_to_txt_field, "Finished Scheduling messages")
+                if interval < workload:
+                    sleep(step)
+                    msg = "Pausing execution for {0} secs".format(step)
+                    wx.CallAfter(window.log_message_to_txt_field, msg)
+                
+                
+            wx.CallAfter(window.log_message_to_txt_field, "Finished sending Scheduled messages")
             msg = "-"*50
             wx.CallAfter(window.log_message_to_txt_field, msg)
+            event.set()
 
 
 
@@ -159,13 +198,43 @@ class Whatsappbot(object):
 
 
 
+
+    ######################---------------------------------------------------
+    def search_group(self, group_name, window):
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        msg = "[{0}]:[{1}] searching....".format(current_time,group_name)
+        wx.CallAfter(window.log_message_to_txt_field, msg)
+        search_field = self.driver.find_element_by_class_name("_13NKt")
+        search_field.click()
+        search_field.clear()
+        search_field.send_keys(group_name)
+        try:
+            WebDriverWait(self.driver, 240).until(EC.visibility_of_any_elements_located((By.CLASS_NAME, "_3GYfN")))
+        except (ElementNotVisibleException, NoSuchElementException, TimeoutException) as e:
+            self.driver.save_screenshot("error_file.png")
+        else:
+            try:
+                xpath_element = "//span[contains(@class, 'ggj6brxn gfz4du6o r7fjleex g0rxnol2 lhj4utae le5p0ye3 l7jjieqr i0jNr') and text() = '" + group_name + "']"
+                group = self.driver.find_element_by_xpath(xpath_element)
+            except NoSuchElementException:
+                pass
+            except StaleElementReferenceException:
+                self.driver.refresh()
+            else:
+                group.click()
+                self.post = True
+                msg = "{0} found and clicked".format(group_name)
+                wx.CallAfter(window.log_message_to_txt_field, msg)
+                return
 
     #-----------------------------------------------------------------------------
     def find_group(self, group_name, window):
+        now = datetime.now()
         msg = "Searching for group: [{0}]".format(group_name)
         wx.CallAfter(window.log_message_to_txt_field, msg)
         try:
-            xpath_element =  "//span[contains(@class, 'emoji-texttt _ccCW FqYAR i0jNr') and text() = '" + group_name + "']"
+            xpath_element = "//span[contains(@class, 'ggj6brxn gfz4du6o r7fjleex g0rxnol2 lhj4utae le5p0ye3 l7jjieqr i0jNr') and text() = '" + group_name + "']"
             group = self.driver.find_element_by_xpath(xpath_element)
         except NoSuchElementException:
             msg = "[{0}] searching....".format(group_name)
@@ -218,11 +287,34 @@ class Whatsappbot(object):
 
     #------------------------------------------------------------------
     def post_message(self, group_name, message, window):
-        print("Sending message {0}".format(message))
+        #print("Sending message {0}".format(message))
         message_field = self.driver.find_element_by_xpath("//div[contains(@class,'_1UWac _1LbR4')]//div[contains(@class, '_13NKt copyable-text selectable-text')]")
+        if '\n' not in message:
+            message_field.send_keys(message)
+        else:
+            message = message.splitlines()
+
+            
+            for line in message:
+                if line != "\n":
+                    message_field.send_keys(line)
+                    message_field.send_keys(Keys.SHIFT + Keys.ENTER)
+        message_field.send_keys(Keys.ENTER)
+        # send message
+        #send_button = self.driver.find_element_by_class_name("_4sWnG")
+        #send_button.click()
+        msg = "Posted to group [{0}]".format(group_name)
+        wx.CallAfter(window.log_message_to_txt_field, msg)
+
+#------------------------------------------------------------------
+    def post_current_message(self, group_name, message, window):
+        #print("Sending message {0}".format(message))
+        message_field = self.driver.find_element_by_xpath("//div[contains(@class,'_1UWac _1LbR4')]//div[contains(@class, '_13NKt copyable-text selectable-text')]")
+            
         for line in message:
-            message_field.send_keys(line)
-            message_field.send_keys(Keys.SHIFT + Keys.ENTER)
+            if line != "\n":
+                message_field.send_keys(line)
+                message_field.send_keys(Keys.SHIFT + Keys.ENTER)
         message_field.send_keys(Keys.ENTER)
         # send message
         #send_button = self.driver.find_element_by_class_name("_4sWnG")
